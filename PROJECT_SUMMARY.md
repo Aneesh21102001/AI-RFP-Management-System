@@ -17,7 +17,7 @@
 - [x] Environment variables documentation
 
 #### Tech Stack
-- [x] Frontend: React with TypeScript
+- [x] Frontend: React with JavaScript
 - [x] Backend: FastAPI (Python)
 - [x] Database: SQLite
 - [x] AI Provider: OpenAI GPT-4
@@ -36,7 +36,7 @@
 - [x] AI integration decisions (model choice, prompting strategy)
 - [x] Email handling decisions (SMTP, receiving approach)
 - [x] UI/UX design decisions (chat interface, comparison view)
-- [x] Technical decisions (SQLite, FastAPI, TypeScript)
+- [x] Technical decisions (SQLite, FastAPI, JavaScript)
 - [x] Limitations and known issues documented
 
 #### AI Tools Usage
@@ -79,7 +79,7 @@
 - ✅ Data validation with Pydantic
 - ✅ Error handling
 
-### Frontend (React + TypeScript)
+### Frontend (React + JavaScript)
 - ✅ Dashboard with overview
 - ✅ Chat interface for RFP creation
 - ✅ RFP list and detail views
@@ -93,7 +93,7 @@
 - ✅ Clear separation of concerns (routers, services, models)
 - ✅ Consistent naming conventions
 - ✅ Error handling throughout
-- ✅ Type safety (TypeScript, Pydantic)
+- ✅ Type safety (JavaScript, Pydantic)
 - ✅ Documentation in code
 
 ## Out of Scope (Correctly Excluded)

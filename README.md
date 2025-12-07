@@ -15,13 +15,13 @@ A single-user web application for procurement managers to create RFPs, manage ve
 
 ### Core Technologies
 
-- **Backend**: FastAPI 0.104.1 (Python 3.8+)
-- **Frontend**: React 18.2.0 with TypeScript 5.3.3
-- **Database**: SQLite (via SQLAlchemy 2.0.23)
-- **AI Provider**: OpenAI GPT-4 (via openai 1.3.5)
-- **Email**: SMTP via aiosmtplib 3.0.1
-- **API Client**: Axios 1.6.2
-- **Routing**: React Router DOM 6.20.1
+- **Backend**: FastAPI (Python)
+- **Frontend**: React with JavaScript
+- **Database**: SQLite (via SQLAlchemy)
+- **AI Provider**: OpenAI GPT-4 (via openai)
+- **Email**: SMTP via aiosmtplib
+- **API Client**: Axios
+- **Routing**: React Router DOM
 
 ### Key Libraries
 
@@ -37,7 +37,7 @@ A single-user web application for procurement managers to create RFPs, manage ve
 ### Why These Choices?
 
 - **Backend: FastAPI (Python)**: Fast, modern, async-capable framework with excellent API documentation. Python has strong AI/ML ecosystem support.
-- **Frontend: React with TypeScript**: Industry-standard, type-safe, component-based UI framework
+- **Frontend: React with JavaScript**: Industry-standard, type-safe, component-based UI framework
 - **Database: SQLite**: Perfect for single-user applications - no setup required, file-based, reliable
 - **AI: OpenAI GPT-4**: State-of-the-art language model for natural language understanding and extraction
 - **Email: SMTP (aiosmtplib)**: Standard protocol, works with any email provider
@@ -563,8 +563,8 @@ Receive and parse vendor email response.
 - **Reasoning**: Better performance for I/O-bound operations (AI calls, email sending)
 - **Assumption**: Will benefit from async/await for concurrent operations
 
-**React with TypeScript:**
-- **Decision**: TypeScript for type safety in frontend
+**React with JavaScript:**
+- **Decision**: JavaScript for type safety in frontend
 - **Reasoning**: Catches errors at compile time, better IDE support
 - **Assumption**: Type safety worth the additional setup complexity
 
@@ -602,7 +602,7 @@ Receive and parse vendor email response.
 - **Iteration**: Started with simpler prompts, iterated to include examples and explicit JSON format requirements
 
 #### 4. **Frontend Component Structure**
-- **Prompt**: "Create React components for RFP management with TypeScript"
+- **Prompt**: "Create React components for RFP management with JavaScript"
 - **Help**: Generated component structure, API client patterns, routing setup
 - **Refinement**: Simplified initial complex state management to more straightforward patterns
 
@@ -675,7 +675,7 @@ Most AI-generated code required refinement for:
 
 The application uses:
 - FastAPI with automatic API documentation at `http://localhost:8000/docs`
-- React with TypeScript for type safety
+- React with JavaScript for type safety
 - SQLite database (file: `rfp_management.db` in backend directory)
 
 ## Future Enhancements
