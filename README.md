@@ -625,6 +625,7 @@ You are an AI assistant that extracts [data type] from [source].
 Return ONLY valid JSON, no additional text.
 ```
 
+
 This pattern consistently produced reliable JSON output.
 
 #### Iterative Refinement:
