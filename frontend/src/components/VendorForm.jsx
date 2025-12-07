@@ -1,14 +1,22 @@
+// ------------------------------------------------------
+// This component is used for both creating and editing vendors.
+// If an ID is provided, it loads the vendor and pre-fills the form;
+// otherwise, it creates a new vendor.
+// ------------------------------------------------------
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { vendorsApi } from '../api/vendors';
 
 const VendorForm = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id } = useParams();        // Extract vendor ID from URL
+  const navigate = useNavigate();    // For redirecting after save
 
+  // General UI and API states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Form data for vendor fields
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -18,30 +26,33 @@ const VendorForm = () => {
     notes: '',
   });
 
+  // Load vendor details when editing
   useEffect(() => {
+    const loadVendor = async () => {
+      try {
+        const vendor = await vendorsApi.getById(Number(id));
+
+        // Populate form with vendor details
+        setFormData({
+          name: vendor.name,
+          email: vendor.email,
+          phone: vendor.phone || '',
+          address: vendor.address || '',
+          contact_person: vendor.contact_person || '',
+          notes: vendor.notes || '',
+        });
+      } catch (error) {
+        console.error('Failed to load vendor:', error);
+        setError('Failed to load vendor');
+      }
+    };
+
     if (id && id !== 'new') {
       loadVendor();
     }
   }, [id]);
 
-  const loadVendor = async () => {
-    try {
-      const vendor = await vendorsApi.getById(Number(id));
-
-      setFormData({
-        name: vendor.name,
-        email: vendor.email,
-        phone: vendor.phone || '',
-        address: vendor.address || '',
-        contact_person: vendor.contact_person || '',
-        notes: vendor.notes || '',
-      });
-    } catch (error) {
-      console.error('Failed to load vendor:', error);
-      setError('Failed to load vendor');
-    }
-  };
-
+  // Handle form submission for create/update
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -49,11 +60,14 @@ const VendorForm = () => {
 
     try {
       if (id && id !== 'new') {
+        // Editing existing vendor
         await vendorsApi.update(Number(id), formData);
       } else {
+        // Creating new vendor
         await vendorsApi.create(formData);
       }
 
+      // Redirect back to vendor list
       navigate('/vendors');
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to save vendor');
@@ -62,6 +76,7 @@ const VendorForm = () => {
     }
   };
 
+  // Update form state on each keystroke
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -71,18 +86,22 @@ const VendorForm = () => {
 
   return (
     <div>
+      {/* Back navigation */}
       <div style={{ marginBottom: '1rem' }}>
         <button onClick={() => navigate('/vendors')} className="btn btn-secondary">
           ← Back to Vendors
         </button>
       </div>
 
+      {/* Page Title */}
       <h1>{id && id !== 'new' ? 'Edit Vendor' : 'Add New Vendor'}</h1>
 
+      {/* Error banner */}
       {error && <div className="error">{error}</div>}
 
       <div className="card">
         <form onSubmit={handleSubmit}>
+
           {/* Name */}
           <div className="form-group">
             <label className="form-label">Name *</label>
@@ -157,7 +176,7 @@ const VendorForm = () => {
             />
           </div>
 
-          {/* Buttons */}
+          {/* Action Buttons */}
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading
@@ -175,6 +194,7 @@ const VendorForm = () => {
               Cancel
             </button>
           </div>
+
         </form>
       </div>
     </div>

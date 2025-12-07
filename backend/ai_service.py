@@ -1,3 +1,9 @@
+# ------------------------------------------------------
+# This module handles all AI-related logic for the system.
+# It uses OpenAI models to parse natural text into RFPs,
+# extract structured proposal data, and compare proposals.
+# ------------------------------------------------------
+
 import os
 import json
 from openai import OpenAI
@@ -5,59 +11,70 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Initialize OpenAI client using API key from environment
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 def parse_natural_language_to_rfp(user_input: str) -> dict:
     """
-    Convert natural language description to structured RFP format.
+    Convert a natural language RFP description into a fully structured RFP.
+    Used when users describe their requirements in plain English.
     """
+
+    # Prompt instructs model to extract all RFP fields in strict JSON format
     prompt = f"""You are an AI assistant that helps convert procurement requests into structured RFPs.
 
 User request: {user_input}
 
 Extract the following information and return it as a JSON object:
-- title: A concise title for the RFP
-- description: The full description of what needs to be procured
-- budget: Total budget amount (as a number, or null if not specified)
-- delivery_days: Required delivery time in days (as a number, or null if not specified)
-- payment_terms: Payment terms (e.g., "net 30", "net 60", etc., or null if not specified)
-- warranty_required: Warranty requirements (e.g., "1 year", "2 years", etc., or null if not specified)
-- items: Array of items with their specifications. Each item should have:
-  - name: Item name
-  - quantity: Quantity needed
-  - specifications: Object with key-value pairs of specifications (e.g., {{"RAM": "16GB", "size": "27-inch"}})
-- requirements: Array of any additional requirements or conditions
+- title
+- description
+- budget
+- delivery_days
+- payment_terms
+- warranty_required
+- items (array with name, quantity, specifications)
+- requirements (array)
 
 Return ONLY valid JSON, no additional text."""
 
     try:
+        # Send structured extraction request to OpenAI
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant that extracts structured data from natural language. Always return valid JSON only."},
+                {"role": "system", "content": "You extract structured data and always return valid JSON."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3
         )
         
+        # Get raw content returned by the model
         content = response.choices[0].message.content.strip()
-        # Remove markdown code blocks if present
+
+        # Clean possible JSON code block wrappers
         if content.startswith("```json"):
             content = content[7:]
         if content.startswith("```"):
             content = content[3:]
         if content.endswith("```"):
             content = content[:-3]
-        content = content.strip()
-        
+
+        # Convert clean JSON string to Python dict
         return json.loads(content)
+
     except Exception as e:
+        # Wrap any failure as a readable exception
         raise Exception(f"Failed to parse RFP: {str(e)}")
+
 
 def extract_proposal_details(email_content: str, rfp_data: dict) -> dict:
     """
-    Extract structured proposal details from vendor email response.
+    Extract structured proposal information from a vendor's email.
+    Uses AI to understand pricing, delivery, warranty, item details, etc.
     """
+
+    # Build a summary of RFP requirements to give AI context
     rfp_summary = f"""
 RFP Title: {rfp_data.get('title', 'N/A')}
 Budget: {rfp_data.get('budget', 'N/A')}
@@ -67,6 +84,7 @@ Warranty Required: {rfp_data.get('warranty_required', 'N/A')}
 Items: {json.dumps(rfp_data.get('items', []), indent=2)}
 """
 
+    # AI extraction prompt to interpret vendor email into structured fields
     prompt = f"""You are an AI assistant that extracts proposal details from vendor email responses.
 
 RFP Requirements:
@@ -75,50 +93,53 @@ RFP Requirements:
 Vendor Email Response:
 {email_content}
 
-Extract the following information and return it as a JSON object:
-- total_price: Total price quoted (as a number, or null if not found)
-- delivery_days: Delivery time in days (as a number, or null if not found)
-- payment_terms: Payment terms offered (string, or null if not found)
-- warranty: Warranty offered (string, or null if not found)
-- items: Array of items with prices. Each item should have:
-  - name: Item name (match to RFP items if possible)
-  - quantity: Quantity (if specified)
-  - unit_price: Price per unit (as a number, or null)
-  - total_price: Total price for this item (as a number, or null)
-  - specifications: Any specifications mentioned
-- terms_conditions: Any important terms and conditions mentioned
-- completeness_score: A score from 0 to 1 indicating how complete the response is (considering if all RFP requirements are addressed)
+Extract the following information and return it as JSON:
+- total_price
+- delivery_days
+- payment_terms
+- warranty
+- items (with name, quantity, unit_price, total_price, specifications)
+- terms_conditions
+- completeness_score (0 to 1)
 
 Return ONLY valid JSON, no additional text."""
 
     try:
+        # Call OpenAI for extraction
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant that extracts structured data from vendor emails. Always return valid JSON only."},
+                {"role": "system", "content": "Extract structured data and return JSON only."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3
         )
-        
+
+        # Clean returned content
         content = response.choices[0].message.content.strip()
-        # Remove markdown code blocks if present
         if content.startswith("```json"):
             content = content[7:]
         if content.startswith("```"):
             content = content[3:]
         if content.endswith("```"):
             content = content[:-3]
-        content = content.strip()
-        
+
         return json.loads(content)
+
     except Exception as e:
         raise Exception(f"Failed to extract proposal details: {str(e)}")
 
+
 def compare_proposals_and_recommend(rfp_data: dict, proposals: list) -> dict:
     """
-    Compare multiple proposals and provide recommendations.
+    Analyze all proposals for an RFP and generate:
+    - vendor comparison scores
+    - strengths/weaknesses
+    - rankings
+    - recommended vendor with reasoning
     """
+
+    # Convert proposals to simplified summaries for the AI
     proposals_summary = []
     for prop in proposals:
         proposals_summary.append({
@@ -130,7 +151,8 @@ def compare_proposals_and_recommend(rfp_data: dict, proposals: list) -> dict:
             "completeness_score": prop.get("completeness_score", 0),
             "items": prop.get("items", [])
         })
-    
+
+    # Prompt instructing AI to compare proposals and output detailed JSON
     prompt = f"""You are an AI assistant that helps procurement managers compare vendor proposals.
 
 RFP Requirements:
@@ -143,41 +165,33 @@ Warranty Required: {rfp_data.get('warranty_required', 'N/A')}
 Proposals:
 {json.dumps(proposals_summary, indent=2)}
 
-Analyze these proposals and return a JSON object with:
-- comparison: Array of vendor comparisons, each with:
-  - vendor_name: Name of the vendor
-  - score: Overall score from 0-100 (considering price, delivery, terms, completeness, and alignment with requirements)
-  - strengths: Array of strengths
-  - weaknesses: Array of weaknesses
-  - price_rank: Ranking by price (1 = cheapest)
-  - delivery_rank: Ranking by delivery speed (1 = fastest)
-- recommendation: Object with:
-  - recommended_vendor: Name of the recommended vendor
-  - reason: Detailed explanation of why this vendor is recommended
-  - summary: Brief summary of the comparison
+Return a JSON object with:
+- comparison (scores, strengths, weaknesses, ranks)
+- recommendation (best vendor and explanation)
 
-Return ONLY valid JSON, no additional text."""
+Return JSON ONLY."""
 
     try:
+        # Call OpenAI to perform comparison
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant that compares vendor proposals. Always return valid JSON only."},
+                {"role": "system", "content": "Compare proposals and output valid JSON only."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3
         )
-        
+
+        # Clean JSON result
         content = response.choices[0].message.content.strip()
-        # Remove markdown code blocks if present
         if content.startswith("```json"):
             content = content[7:]
         if content.startswith("```"):
             content = content[3:]
         if content.endswith("```"):
             content = content[:-3]
-        content = content.strip()
-        
+
         return json.loads(content)
+
     except Exception as e:
         raise Exception(f"Failed to compare proposals: {str(e)}")

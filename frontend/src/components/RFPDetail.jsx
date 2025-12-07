@@ -1,3 +1,9 @@
+// ------------------------------------------------------
+// This component shows full details of a single RFP.
+// It loads RFP info, vendors, and proposals, allows sending
+// RFPs to vendors, and performs AI-based proposal comparison.
+// ------------------------------------------------------
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { rfpsApi } from '../api/rfps';
@@ -7,33 +13,46 @@ import { emailApi } from '../api/email';
 import './RFPDetail.css';
 
 const RFPDetail = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id } = useParams();        // Extract RFP ID from URL
+  const navigate = useNavigate();    // For navigation actions
 
+  // RFP-related state
   const [rfp, setRfp] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [proposals, setProposals] = useState([]);
+
+  // AI comparison result
   const [comparison, setComparison] = useState(null);
+  const [showComparison, setShowComparison] = useState(false);
+
+  // Vendor selection for sending RFP
   const [selectedVendors, setSelectedVendors] = useState([]);
+
+  // UI states
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const [showComparison, setShowComparison] = useState(false);
   const [loadingComparison, setLoadingComparison] = useState(false);
 
+  // Error/success notifications
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+
+  // Load data when component mounts or when ID changes
   useEffect(() => {
     if (id) loadData();
   }, [id, loadData]);
 
+  // Wrapped in useCallback to avoid infinite loops in useEffect
   const loadData = useCallback(async () => {
     try {
+      // Fetch RFP, vendors, and proposals simultaneously
       const [rfpData, vendorsData, proposalsData] = await Promise.all([
         rfpsApi.getById(Number(id)),
         vendorsApi.getAll(),
         proposalsApi.getAll(Number(id)),
       ]);
 
+      // Update state
       setRfp(rfpData);
       setVendors(vendorsData);
       setProposals(proposalsData);
@@ -45,6 +64,9 @@ const RFPDetail = () => {
     }
   }, [id]);
 
+  // ------------------------------------------------------
+  // Sending RFPs to selected vendors
+  // ------------------------------------------------------
   const handleSendRFP = async () => {
     if (selectedVendors.length === 0) {
       setError('Please select at least one vendor');
@@ -56,14 +78,15 @@ const RFPDetail = () => {
     setSuccess(null);
 
     try {
+      // Call backend email API
       await emailApi.sendRFP({
         rfp_id: Number(id),
         vendor_ids: selectedVendors,
       });
 
       setSuccess(`RFP sent successfully to ${selectedVendors.length} vendor(s)`);
-      setSelectedVendors([]);
-      await loadData();
+      setSelectedVendors([]);  // Reset selection
+      await loadData();        // Refresh RFP status after sending
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to send RFP');
     } finally {
@@ -71,6 +94,9 @@ const RFPDetail = () => {
     }
   };
 
+  // ------------------------------------------------------
+  // AI comparison handler
+  // ------------------------------------------------------
   const handleCompare = async () => {
     if (proposals.length < 2) {
       setError('Need at least 2 proposals to compare');
@@ -81,6 +107,7 @@ const RFPDetail = () => {
     setError(null);
 
     try {
+      // Request AI-driven comparison from backend
       const result = await proposalsApi.compare(Number(id));
       setComparison(result);
       setShowComparison(true);
@@ -91,6 +118,7 @@ const RFPDetail = () => {
     }
   };
 
+  // Handles selection/deselection of vendor checkboxes
   const toggleVendorSelection = (vendorId) => {
     setSelectedVendors((prev) =>
       prev.includes(vendorId)
@@ -99,11 +127,14 @@ const RFPDetail = () => {
     );
   };
 
+  // Loading states
   if (loading) return <div className="loading">Loading RFP details...</div>;
   if (!rfp) return <div className="error">RFP not found</div>;
 
   return (
     <div className="rfp-detail">
+
+      {/* Back navigation */}
       <div style={{ marginBottom: '1rem' }}>
         <button onClick={() => navigate('/rfps')} className="btn btn-secondary">
           ← Back to RFPs
@@ -112,10 +143,13 @@ const RFPDetail = () => {
 
       <h1>{rfp.title}</h1>
 
+      {/* Notification banners */}
       {error && <div className="error">{error}</div>}
       {success && <div className="success">{success}</div>}
 
-      {/* RFP Details */}
+      {/* ------------------------------------------------------
+          RFP MAIN DETAILS SECTION
+      ------------------------------------------------------ */}
       <div className="rfp-detail-grid">
         <div className="card">
           <h2>Details</h2>
@@ -169,7 +203,7 @@ const RFPDetail = () => {
           </div>
         </div>
 
-        {/* Items */}
+        {/* ITEMS TABLE */}
         {rfp.items && rfp.items.length > 0 && (
           <div className="card">
             <h2>Items</h2>
@@ -181,6 +215,7 @@ const RFPDetail = () => {
                   <th>Specifications</th>
                 </tr>
               </thead>
+
               <tbody>
                 {rfp.items.map((item, idx) => (
                   <tr key={idx}>
@@ -200,7 +235,7 @@ const RFPDetail = () => {
           </div>
         )}
 
-        {/* Requirements */}
+        {/* ADDITIONAL REQUIREMENTS */}
         {rfp.requirements && rfp.requirements.length > 0 && (
           <div className="card">
             <h2>Additional Requirements</h2>
@@ -213,15 +248,19 @@ const RFPDetail = () => {
         )}
       </div>
 
-      {/* Send RFP to Vendors */}
+      {/* ------------------------------------------------------
+          SEND RFP SECTION (Only when in "draft" state)
+      ------------------------------------------------------ */}
       {rfp.status === 'draft' && (
         <div className="card">
           <h2>Send RFP to Vendors</h2>
 
+          {/* No vendors available */}
           {vendors.length === 0 ? (
             <p>No vendors available. <a href="/vendors">Add vendors</a> first.</p>
           ) : (
             <>
+              {/* Vendor list with checkboxes */}
               <div className="vendor-selection">
                 {vendors.map((vendor) => (
                   <label key={vendor.id} className="vendor-checkbox">
@@ -237,6 +276,7 @@ const RFPDetail = () => {
                 ))}
               </div>
 
+              {/* Send button */}
               <button
                 onClick={handleSendRFP}
                 className="btn btn-success"
@@ -251,9 +291,13 @@ const RFPDetail = () => {
         </div>
       )}
 
-      {/* Proposals */}
+      {/* ------------------------------------------------------
+          PROPOSALS SECTION
+      ------------------------------------------------------ */}
       {proposals.length > 0 && (
         <div className="card">
+
+          {/* Header with compare button */}
           <div
             style={{
               display: 'flex',
@@ -275,7 +319,7 @@ const RFPDetail = () => {
             )}
           </div>
 
-          {/* Comparison Section */}
+          {/* AI COMPARISON RESULTS */}
           {showComparison && comparison && (
             <div className="comparison-section">
               <h3>AI Recommendation</h3>
@@ -292,6 +336,7 @@ const RFPDetail = () => {
                 </p>
               </div>
 
+              {/* DETAILED COMPARISON TABLE */}
               <h3>Detailed Comparison</h3>
               <table className="table">
                 <thead>
@@ -337,7 +382,7 @@ const RFPDetail = () => {
             </div>
           )}
 
-          {/* Proposal List */}
+          {/* PROPOSAL LIST TABLE */}
           <table className="table">
             <thead>
               <tr>
@@ -385,6 +430,7 @@ const RFPDetail = () => {
               ))}
             </tbody>
           </table>
+
         </div>
       )}
     </div>

@@ -1,16 +1,24 @@
+// ------------------------------------------------------
+// Displays a list of all vendors with options to add,
+// edit, or delete vendors. Fetches vendor data on load
+// and updates list after modifications.
+// ------------------------------------------------------
+
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { vendorsApi } from '../api/vendors';
 
 const VendorList = () => {
-  const [vendors, setVendors] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [vendors, setVendors] = useState([]);    // Vendor list
+  const [loading, setLoading] = useState(true);  // Loading indicator
   const navigate = useNavigate();
 
+  // Load vendor list when component mounts
   useEffect(() => {
     loadVendors();
   }, []);
 
+  // Fetch all vendors from backend
   const loadVendors = async () => {
     try {
       const data = await vendorsApi.getAll();
@@ -22,6 +30,7 @@ const VendorList = () => {
     }
   };
 
+  // Delete a vendor after confirmation
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this vendor?')) {
       return;
@@ -29,20 +38,21 @@ const VendorList = () => {
 
     try {
       await vendorsApi.delete(id);
-      await loadVendors();
+      await loadVendors(); // Reload updated list
     } catch (error) {
       console.error('Failed to delete vendor:', error);
       alert('Failed to delete vendor');
     }
   };
 
+  // Show loading state
   if (loading) {
     return <div className="loading">Loading vendors...</div>;
   }
 
   return (
     <div>
-      {/* Header */}
+      {/* Header with Add Vendor button */}
       <div
         style={{
           display: 'flex',
@@ -52,12 +62,14 @@ const VendorList = () => {
         }}
       >
         <h1>Vendors</h1>
+
+        {/* Navigate to vendor creation form */}
         <Link to="/vendors/new" className="btn btn-primary">
           Add New Vendor
         </Link>
       </div>
 
-      {/* Vendor Table */}
+      {/* Vendor table or empty state */}
       {vendors.length === 0 ? (
         <div className="card">
           <p>
@@ -78,6 +90,7 @@ const VendorList = () => {
             </thead>
 
             <tbody>
+              {/* Render each vendor row */}
               {vendors.map((vendor) => (
                 <tr key={vendor.id}>
                   <td>{vendor.name}</td>
@@ -86,6 +99,7 @@ const VendorList = () => {
                   <td>{vendor.contact_person || 'N/A'}</td>
 
                   <td>
+                    {/* Edit vendor */}
                     <button
                       onClick={() => navigate(`/vendors/${vendor.id}/edit`)}
                       className="btn btn-secondary"
@@ -98,6 +112,7 @@ const VendorList = () => {
                       Edit
                     </button>
 
+                    {/* Delete vendor */}
                     <button
                       onClick={() => handleDelete(vendor.id)}
                       className="btn btn-danger"

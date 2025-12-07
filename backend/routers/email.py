@@ -1,3 +1,9 @@
+# ------------------------------------------------------
+# This module handles sending RFPs to vendors via email
+# and receiving/parsing vendor proposal responses using AI.
+# It saves proposal data into the database after processing.
+# ------------------------------------------------------
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
@@ -12,16 +18,18 @@ router = APIRouter()
 @router.post("/send-rfp")
 async def send_rfp(request: SendRFPRequest, db: Session = Depends(get_db)):
     """Send an RFP to selected vendors via email"""
+
+    # Fetch the RFP from database
     rfp = db.query(RFPModel).filter(RFPModel.id == request.rfp_id).first()
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
     
-    # Get vendors
+    # Fetch all vendors based on selected vendor IDs
     vendors = db.query(VendorModel).filter(VendorModel.id.in_(request.vendor_ids)).all()
     if len(vendors) != len(request.vendor_ids):
         raise HTTPException(status_code=404, detail="One or more vendors not found")
     
-    # Prepare RFP data
+    # Prepare the RFP details that will be sent via email
     rfp_data = {
         "title": rfp.title,
         "description": rfp.description,
@@ -33,53 +41,71 @@ async def send_rfp(request: SendRFPRequest, db: Session = Depends(get_db)):
         "requirements": rfp.requirements or []
     }
     
-    # Send emails
+    # Loop through vendors and try sending RFP email to each
     results = []
     for vendor in vendors:
         try:
             await send_rfp_email(vendor.email, vendor.name, rfp_data)
-            results.append({"vendor_id": vendor.id, "vendor_name": vendor.name, "status": "sent"})
+            results.append({
+                "vendor_id": vendor.id, 
+                "vendor_name": vendor.name, 
+                "status": "sent"
+            })
         except Exception as e:
-            results.append({"vendor_id": vendor.id, "vendor_name": vendor.name, "status": "failed", "error": str(e)})
+            # Capture failures per vendor (email issues, SMTP, etc.)
+            results.append({
+                "vendor_id": vendor.id, 
+                "vendor_name": vendor.name, 
+                "status": "failed", 
+                "error": str(e)
+            })
     
-    # Update RFP status
+    # Update RFP status after attempting all emails
     rfp.status = "sent"
     db.commit()
     
     return {"message": "RFP sending completed", "results": results}
 
+
 @router.post("/receive", response_model=Proposal)
 async def receive_vendor_email(request: ReceiveEmailRequest, db: Session = Depends(get_db)):
     """Receive and parse a vendor email response"""
-    # Try to find RFP ID from subject or body if not provided
+
+    # RFP ID can come directly or extracted from subject/body
     rfp_id = request.rfp_id
     
     if not rfp_id:
-        # Try to extract RFP ID from subject (e.g., "Re: Request for Proposal: RFP #123")
+        # Try to extract RFP ID from email subject (e.g., "RFP #10")
         match = re.search(r'RFP[:\s#]*(\d+)', request.subject, re.IGNORECASE)
         if match:
             rfp_id = int(match.group(1))
         else:
-            # Try to find by matching vendor email to recent RFPs
-            # This is a simplified approach - in production, you'd want better matching
-            raise HTTPException(status_code=400, detail="RFP ID not found in email. Please specify rfp_id.")
+            # No RFP ID provided and not found in subject — stop early
+            raise HTTPException(
+                status_code=400, 
+                detail="RFP ID not found in email. Please specify rfp_id."
+            )
     
+    # Validate RFP exists
     rfp = db.query(RFPModel).filter(RFPModel.id == rfp_id).first()
     if not rfp:
         raise HTTPException(status_code=404, detail="RFP not found")
     
-    # Find vendor by email
+    # Find vendor using sender's email address
     vendor = db.query(VendorModel).filter(VendorModel.email == request.from_email).first()
     if not vendor:
-        raise HTTPException(status_code=404, detail=f"Vendor with email {request.from_email} not found")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Vendor with email {request.from_email} not found"
+        )
     
-    # Check if proposal already exists
+    # Check if vendor already sent a proposal for this RFP
     existing_proposal = db.query(ProposalModel).filter(
         ProposalModel.rfp_id == rfp_id,
         ProposalModel.vendor_id == vendor.id
     ).first()
     
-    # Prepare RFP data for AI extraction
+    # Prepare data so the AI model knows what the original RFP asked for
     rfp_data = {
         "title": rfp.title,
         "budget": rfp.budget,
@@ -89,11 +115,11 @@ async def receive_vendor_email(request: ReceiveEmailRequest, db: Session = Depen
         "items": rfp.items or []
     }
     
-    # Use AI to extract proposal details
     try:
+        # Use AI to extract structured proposal details from vendor's email body
         extracted_data = extract_proposal_details(request.body, rfp_data)
         
-        # Create or update proposal
+        # Create a dictionary with fields to store/update in DB
         proposal_data = {
             "rfp_id": rfp_id,
             "vendor_id": vendor.id,
@@ -109,15 +135,17 @@ async def receive_vendor_email(request: ReceiveEmailRequest, db: Session = Depen
         }
         
         if existing_proposal:
-            # Update existing proposal
+            # Update existing proposal (vendor replied again)
             for field, value in proposal_data.items():
+                # Avoid overwriting identifiers
                 if field not in ["rfp_id", "vendor_id"]:
                     setattr(existing_proposal, field, value)
             db.commit()
             db.refresh(existing_proposal)
             return existing_proposal
+        
         else:
-            # Create new proposal
+            # Create a brand-new proposal record
             db_proposal = ProposalModel(**proposal_data)
             db.add(db_proposal)
             db.commit()
@@ -125,4 +153,8 @@ async def receive_vendor_email(request: ReceiveEmailRequest, db: Session = Depen
             return db_proposal
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse email: {str(e)}")
+        # Any parsing/AI error is surfaced as a 500
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to parse email: {str(e)}"
+        )

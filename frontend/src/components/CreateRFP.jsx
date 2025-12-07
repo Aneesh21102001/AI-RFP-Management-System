@@ -1,28 +1,47 @@
+// ------------------------------------------------------
+// This component allows users to create an RFP using natural language.
+// It communicates with the backend AI endpoint, shows a chat-style UI,
+// and redirects users to the generated RFP page.
+// ------------------------------------------------------
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { rfpsApi } from '../api/rfps';
 import './CreateRFP.css';
 
 const CreateRFP = () => {
+  // State for user's text input
   const [text, setText] = useState('');
+
+  // Loading spinner state during API call
   const [loading, setLoading] = useState(false);
+
+  // Holds any error returned by API
   const [error, setError] = useState(null);
+
+  // Holds chat message history (user + assistant)
   const [messages, setMessages] = useState([]);
+
   const navigate = useNavigate();
 
+  // Handles sending natural-language text to the backend AI parser
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!text.trim()) return;
+    if (!text.trim()) return; // Ignore empty submissions
 
     const userMessage = text.trim();
+
+    // Add user's message to chat
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }]);
     setText('');
     setLoading(true);
     setError(null);
 
     try {
+      // Call backend to generate structured RFP using AI
       const rfp = await rfpsApi.createFromText(userMessage);
 
+      // Add AI assistant message showing extracted RFP summary
       setMessages((prev) => [
         ...prev,
         {
@@ -39,15 +58,18 @@ const CreateRFP = () => {
         }
       ]);
 
-      // Auto-navigate after a short delay
+      // Auto-redirect user to the detailed RFP page after a short delay
       setTimeout(() => {
         navigate(`/rfps/${rfp.id}`);
       }, 2000);
+
     } catch (err) {
+      // Extract error message if available
       setError(
         err?.response?.data?.detail || 'Failed to create RFP. Please try again.'
       );
 
+      // Add assistant error message to chat
       setMessages((prev) => [
         ...prev,
         {
@@ -69,10 +91,15 @@ const CreateRFP = () => {
         structured RFP for you.
       </p>
 
+      {/* Show API errors */}
       {error && <div className="error">{error}</div>}
 
       <div className="chat-container">
+
+        {/* Chat History Box */}
         <div className="chat-messages">
+
+          {/* Initial assistant message when chat is empty */}
           {messages.length === 0 && (
             <div className="chat-message assistant">
               <p>
@@ -97,12 +124,14 @@ const CreateRFP = () => {
             </div>
           )}
 
+          {/* Display each chat message */}
           {messages.map((msg, idx) => (
             <div key={idx} className={`chat-message ${msg.role}`}>
               <p style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</p>
             </div>
           ))}
 
+          {/* Show loading message during API call */}
           {loading && (
             <div className="chat-message assistant">
               <p>Processing your request...</p>
@@ -110,6 +139,7 @@ const CreateRFP = () => {
           )}
         </div>
 
+        {/* User input form */}
         <form onSubmit={handleSubmit} className="chat-input-container">
           <input
             type="text"
@@ -117,12 +147,12 @@ const CreateRFP = () => {
             onChange={(e) => setText(e.target.value)}
             placeholder="Describe what you need to procure..."
             className="chat-input"
-            disabled={loading}
+            disabled={loading}            // Disable when API is working
           />
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={loading || !text.trim()}
+            disabled={loading || !text.trim()}  // Disable when empty or loading
           >
             Send
           </button>
