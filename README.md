@@ -100,7 +100,7 @@ The backend will run on `http://localhost:8000`
 ```bash
 cd frontend
 npm install
-npm start
+npm run dev
 ```
 
 The frontend will run on `http://localhost:3000`
