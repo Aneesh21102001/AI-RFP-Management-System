@@ -7,6 +7,7 @@
 - [x] `.env.example` file (as `backend/env.example`) with all required environment variables
 - [x] `.gitignore` file to exclude secrets and build artifacts
 
+
 ### ✅ README.md Requirements
 
 #### Project Setup
